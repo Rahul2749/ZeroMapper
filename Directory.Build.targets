@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)docs/usage-guide.md" Pack="true" PackagePath="/README.md" />
+  </ItemGroup>
+</Project>

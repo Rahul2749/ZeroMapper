@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ZeroMapper.Abstractions/ZeroMapper.Abstractions.csproj" />
+    <ProjectReference Include="../ZeroMapper.Generator/ZeroMapper.Generator.csproj" PrivateAssets="none" />
+  </ItemGroup>
+</Project>

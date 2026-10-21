@@ -1,0 +1,33 @@
+**/bin/
+**/obj/
+artifacts/
+BenchmarkDotNet.Artifacts/
+TestResults/
+.vs/
+.dotnet/
+
+# Local development configuration
+.agents/
+.codex/
+.claude/
+.cursor/
+.github/agents/
+.github/prompts/
+AGENTS.md
+AGENT.md
+CLAUDE.md
+.cursorrules
+.cursorignore
+.aider*
+.github/copilot-instructions.md
+
+# Local working notes
+docs/plan-review.md
+docs/releases/publication-status.md
+
+# Local credentials
+.env
+.env.*
+!.env.example
+*.user
+*.suo
