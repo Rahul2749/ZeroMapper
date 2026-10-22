@@ -1,6 +1,6 @@
 # Security
 
-ZeroMapper is an experimental preview and is not a supported production release.
+Security fixes target the latest stable 1.x release once published. Older previews are not supported. The 1.0.0 candidate has not yet been published.
 
 Do not post exploit details or personal data in public issues. Contact the [maintainer](https://github.com/Rahul2749) privately through an established channel. A dedicated private vulnerability-reporting route has not yet been configured.
 

@@ -5,14 +5,15 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
-    <Version>0.0.1-preview.1</Version>
+    <Version>1.0.0</Version>
     <Authors>ZeroMapper contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/Rahul2749/ZeroMapper</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Rahul2749/ZeroMapper</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageReleaseNotes>Initial preview: strict generated property mappings, nullable diagnostics, protected members, and allow-listed updates. API is experimental; nested conversion, projections, and runtime mapping are not included.</PackageReleaseNotes>
+    <PackageReleaseNotes>First stable release of the flat-mapping API: strict generated property mappings, nullable diagnostics, protected members, and allow-listed updates. Nested conversion, projections, and runtime mapping are outside the 1.0 scope.</PackageReleaseNotes>
+    <Title>ZeroMapper: source-generated object mapper</Title>
     <PackageTags>mapper;mapping;object-mapper;automapper;dto;source-generator</PackageTags>
     <Description>A strict, source-generated object mapper for .NET with protected members and explicit update allow-lists.</Description>
     <IsPackable>false</IsPackable>

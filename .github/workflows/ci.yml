@@ -6,7 +6,11 @@ permissions:
   contents: read
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -18,8 +22,8 @@ jobs:
         run: ./eng/prepare-release.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: preview-packages
+          name: release-packages-${{ matrix.os }}
           path: |
-            artifacts/packages/*.nupkg
-            artifacts/packages/release-manifest.json
-            artifacts/test-results/prerelease.trx
+            artifacts/packages/**/*.nupkg
+            artifacts/packages/**/release-manifest.json
+            artifacts/test-results/release-*.trx

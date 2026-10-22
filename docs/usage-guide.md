@@ -1,10 +1,10 @@
 # ZeroMapper: installation and usage guide
 
-**Version: 0.0.1-preview.1 — experimental preview.** APIs may change between previews. This guide is also the README embedded in all three NuGet packages.
+**Version: 1.0.0.** This guide documents the supported flat-mapping API and is embedded as the README in all three NuGet packages.
 
 ZeroMapper generates C# object-mapping code during compilation. You declare a partial mapping method; the compiler generates direct assignments and reports unsupported or unsafe bindings as errors. No runtime mapper registration or reflection is needed.
 
-The preview focuses on flat property mapping, strict validation, protected destination members, and explicit update allow-lists. It is suitable for evaluating those features; it is not feature-complete.
+Version 1.0 supports flat property mapping, strict validation, protected destination members, and explicit update allow-lists. This is the supported 1.x contract; future minor versions can add opt-in features without changing existing bindings. Breaking public API or binding-rule changes require a major version. Security fixes may reject previously accepted unsafe mappings.
 
 ## 1. Requirements and packages
 
@@ -20,18 +20,18 @@ The abstractions have no third-party package dependencies. The convenience packa
 
 ### Install the convenience package
 
-Run this in your application project:
+After 1.0.0 is published, run this in your application project:
 
 ```shell
-dotnet add package ZeroMapper --version 0.0.1-preview.1
+dotnet add package ZeroMapper --version 1.0.0
 ```
 
-In Visual Studio's NuGet package manager, enable **Include prerelease**, search for `ZeroMapper`, and select the exact preview version.
+In Visual Studio's NuGet package manager, search for `ZeroMapper` and select version `1.0.0` after publication. Stable versions do not require **Include prerelease**.
 
 To evaluate a locally built release bundle:
 
 ```shell
-dotnet add package ZeroMapper --version 0.0.1-preview.1 --source C:/Github/ZeroMapper/artifacts/packages
+dotnet add package ZeroMapper --version 1.0.0 --source C:/Github/ZeroMapper/artifacts/packages/1.0.0
 ```
 
 Replace that path with the location of your verified `.nupkg` files. Keep all three packages in the same local feed directory.
@@ -44,7 +44,7 @@ Equivalent project configuration:
   <Nullable>enable</Nullable>
 </PropertyGroup>
 <ItemGroup>
-  <PackageReference Include="ZeroMapper" Version="0.0.1-preview.1" />
+  <PackageReference Include="ZeroMapper" Version="1.0.0" />
 </ItemGroup>
 ```
 
@@ -52,8 +52,8 @@ For manual package selection instead of the convenience package:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="ZeroMapper.Abstractions" Version="0.0.1-preview.1" />
-  <PackageReference Include="ZeroMapper.Generator" Version="0.0.1-preview.1"
+  <PackageReference Include="ZeroMapper.Abstractions" Version="1.0.0" />
+  <PackageReference Include="ZeroMapper.Generator" Version="1.0.0"
                     PrivateAssets="all" />
 </ItemGroup>
 ```
@@ -180,7 +180,7 @@ Assignments execute in ordinal destination-name order. If a later setter throws,
 
 ## 6. Nulls, conversions, and object identity
 
-| Binding | Preview behavior |
+| Binding | Version 1.0 behavior |
 |---|---|
 | `int` to `long` | Supported built-in implicit numeric conversion |
 | `int` to `int?` | Supported |
@@ -191,13 +191,13 @@ Assignments execute in ordinal destination-name order. If a later setter throws,
 | Different enum types | Rejected |
 | Compatible same-type object/list/array property | Shallow assignment; reference is shared |
 | `Address` to a different `AddressDto` type | Unsupported nested conversion |
-| `List<T>` to a different collection shape | Unsupported in this preview |
+| `List<T>` to a different collection shape | Unsupported in version 1.0 |
 | Value type to `object` | Boxing conversion rejected |
 | User-defined conversion operator | Rejected |
 
 Passing a null root source or destination throws `ArgumentNullException` with the parameter name. Generated methods do not silently return null for null input.
 
-Enable nullable annotations on both model projects. Nullable or oblivious reference values are rejected when they would flow into non-nullable destination members, including matching generic type arguments and array elements. `MaybeNull` source annotations and `DisallowNull` destination annotations are handled conservatively. Runtime code can still violate declared annotations; per-member runtime null validation is not added automatically.
+Enable nullable annotations on both model projects. Nullable or oblivious reference values are rejected when they would flow into non-nullable destination members, including matching generic type arguments, enclosing generic types and array elements. Invariant shared generic types must preserve nullable contracts in both directions: for example, `List<string>` to `List<string?>` is rejected because the destination could otherwise insert nulls into the source list. Covariant read-only types such as `IEnumerable<string>` can relax to `IEnumerable<string?>`. `MaybeNull` source annotations and `DisallowNull` destination annotations are handled conservatively. Runtime code can still violate declared annotations; per-member runtime null validation is not added automatically.
 
 Reference assignments preserve identity. If `source.Tags` is a list and the matching `destination.Tags` is assigned directly, changing that list through either reference is visible through the other. A new destination object does not imply a new object graph. Collection element conversion, deep copies, flattening, recursion handling and cycle detection are not implemented.
 
@@ -243,7 +243,7 @@ It does **not** include nested or collection element conversion, positional cons
 
 Generated mapping bodies contain direct assignments and root argument checks. They do not use reflection, LINQ, boxing, closures, or runtime configuration lookups. For the tested flat mapping fixture, allocations equal the manual implementation's destination allocation; its update fixture allocates zero bytes. Those results are not a guarantee about allocations performed by your own constructors, getters or setters.
 
-The repository includes a BenchmarkDotNet harness against manual mapping. No speed ratio or competitor benchmark result is claimed for this preview.
+The repository includes a BenchmarkDotNet harness against manual mapping. No speed ratio or competitor benchmark result is claimed for version 1.0.
 
 ## 10. Repository, license, and feedback
 

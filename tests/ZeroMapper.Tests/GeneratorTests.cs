@@ -80,6 +80,9 @@ public sealed class GeneratorTests
     [InlineData("public string Value { get; set; } = \"\";", "[System.Diagnostics.CodeAnalysis.MaybeNull] public string Value { get; set; }", "ZM004")]
     [InlineData("[System.Diagnostics.CodeAnalysis.DisallowNull] public string? Value { get; set; }", "public string? Value { get; set; }", "ZM004")]
     [InlineData("public int Value { get; set; }", "public int? Value { get; set; }", "ZM003")]
+    [InlineData("public int Value { get; set; }", "public int Value { private get; set; }", "ZM002")]
+    [InlineData("public int Value { get; set; }", "public static int Value { get; set; }", "ZM002")]
+    [InlineData("public int Value { get; set; }", "public dynamic Value { get; set; } = 1;", "ZM003")]
     public void Unsafe_or_missing_bindings_fail(string target, string source, string id)
     {
         var result = Generate($$"""
@@ -248,5 +251,136 @@ public sealed class GeneratorTests
             public static class Probe { public static bool Run() { var input = new Input(); var output = Maps.Map(input); return object.ReferenceEquals(input.Values, output.Values) && output.Kind == Kind.Two && output.Count == 5; } }
             """);
         Assert.Equal(true, assembly.GetType("Probe")!.GetMethod("Run")!.Invoke(null, null));
+    }
+
+    [Fact]
+    public void Keyword_namespace_and_identifiers_compile()
+    {
+        Compile("""
+            namespace @event.@namespace;
+            public class @class { public int @int { get; set; } }
+            public class @struct { public int @int { get; set; } }
+            [Mapper] public partial class @void { public partial @struct @return(@class @new); }
+            """);
+    }
+
+    [Fact]
+    public void Multiple_mapper_classes_partial_declarations_and_overloads_compile()
+    {
+        Compile("""
+            public class Input { public int Id { get; set; } }
+            public class OtherInput { public int Id { get; set; } }
+            public class Output { public int Id { get; set; } }
+            [Mapper] public static partial class Maps { public static partial Output Map(Input source); }
+            public static partial class Maps { public static partial Output Map(OtherInput source); }
+            [Mapper] public partial class OtherMaps { public partial Output Map(Input source); }
+            """);
+    }
+
+    [Fact]
+    public void Closed_generic_root_types_compile()
+    {
+        Compile("""
+            public class Input<T> { public T Value { get; set; } = default!; }
+            public class Output<T> { public T Value { get; set; } = default!; }
+            [Mapper] public static partial class Maps { public static partial Output<string> Map(Input<string> source); }
+            """);
+    }
+
+    [Theory]
+    [InlineData("public new int Id { get; set; }")]
+    [InlineData("private new int Id { get; set; }")]
+    [InlineData("public new int Id;")]
+    public void Hidden_destination_member_is_rejected(string member)
+    {
+        var result = Generate($$"""
+            public class Input { public int Id { get; set; } }
+            public class Base { public int Id { get; set; } }
+            public class Output : Base { {{member}} }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+        Assert.Contains(result.Run.Diagnostics, d => d.Id == "ZM005");
+    }
+
+    [Theory]
+    [InlineData("public int Id { get; init; }")]
+    [InlineData("public int Id { get; private set; }")]
+    [InlineData("public int Id => 1;")]
+    public void Updates_cannot_allow_members_without_public_mutable_setters(string member)
+    {
+        var result = Generate($$"""
+            public class Input { public int Id { get; set; } }
+            public class Output { {{member}} }
+            [Mapper] public partial class Maps { [MapAllow("Id")] public partial void Update(Input source, Output target); }
+            """);
+        Assert.Contains(result.Run.Diagnostics, d => d.Id == "ZM006");
+    }
+
+    [Fact]
+    public void User_defined_conversions_are_rejected()
+    {
+        var result = Generate("""
+            public class Value { public static implicit operator int(Value value) => 7; }
+            public class Input { public Value Id { get; set; } = new(); }
+            public class Output { public int Id { get; set; } }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+        Assert.Contains(result.Run.Diagnostics, d => d.Id == "ZM003");
+    }
+
+    [Fact]
+    public void Invariant_generic_nullability_cannot_be_relaxed_through_a_shared_reference()
+    {
+        var result = Generate("""
+            public class Input { public System.Collections.Generic.List<string> Values { get; set; } = []; }
+            public class Output { public System.Collections.Generic.List<string?> Values { get; set; } = []; }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+        Assert.Contains(result.Run.Diagnostics, d => d.Id == "ZM004");
+    }
+
+    [Fact]
+    public void Nullability_in_containing_generic_types_is_checked()
+    {
+        var result = Generate("""
+            public class Outer<T> { public class Inner { public T Value { get; set; } = default!; } }
+            public class Input { public Outer<string?>.Inner Value { get; set; } = new(); }
+            public class Output { public Outer<string>.Inner Value { get; set; } = new(); }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+        Assert.Contains(result.Run.Diagnostics, d => d.Id == "ZM004");
+    }
+
+    [Fact]
+    public void Covariant_readonly_generic_nullability_can_be_relaxed()
+    {
+        Compile("""
+            public class Input { public System.Collections.Generic.IEnumerable<string> Values { get; set; } = []; }
+            public class Output { public System.Collections.Generic.IEnumerable<string?> Values { get; set; } = []; }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+    }
+
+    [Fact]
+    public void Creation_preserves_readonly_and_private_setter_members()
+    {
+        Compile("""
+            public class Input { public int Id { get; set; } }
+            public class Output { public int Id { get; init; } public int Private { get; private set; } public string ReadOnly => "server"; }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+    }
+
+    [Fact]
+    public void Existing_partial_implementations_are_not_replaced()
+    {
+        Compile("""
+            public class Input { }
+            public class Output { public int Missing { get; set; } }
+            [Mapper] public partial class Maps {
+                public partial Output Map(Input source);
+                public partial Output Map(Input source) => new Output { Missing = 7 };
+            }
+            """);
     }
 }

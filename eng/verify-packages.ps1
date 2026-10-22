@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 [xml]$buildProperties = Get-Content -LiteralPath (Join-Path $repo 'Directory.Build.props') -Raw
 $version = [string]$buildProperties.Project.PropertyGroup.Version
-if ($version -notmatch '^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$') { throw 'This script prepares prerelease versions only.' }
-$packages = Join-Path $repo 'artifacts/packages'
+if ($version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$') { throw 'Invalid package release version.' }
+$packages = Join-Path $repo "artifacts/packages/$version"
 $consumer = Join-Path $repo ('artifacts/package-consumer/' + [Guid]::NewGuid().ToString('N'))
 $manifestPath = Join-Path $packages 'release-manifest.json'
 if (Test-Path -LiteralPath $manifestPath) { Remove-Item -LiteralPath $manifestPath }
@@ -63,7 +63,7 @@ try {
     <OutputType>Exe</OutputType>
     <RestorePackagesPath>packages</RestorePackagesPath>
   </PropertyGroup>
-  <ItemGroup><PackageReference Include="ZeroMapper" Version="$version" /></ItemGroup>
+  <ItemGroup><PackageReference Include="ZeroMapper" Version="[$version]" /></ItemGroup>
 </Project>
 "@ | Set-Content -LiteralPath (Join-Path $consumer 'Consumer.csproj')
     $quickStart = [regex]::Match($guide, '(?s)<!-- verified-quickstart -->\s*```csharp\s*\r?\n(.*?)\r?\n```')
@@ -81,6 +81,8 @@ try {
         verifiedAtUtc = [DateTime]::UtcNow.ToString('o')
         consumerFrameworks = @('net8.0', 'net10.0')
         packageValidation = 'passed'
+        sourceCommit = (& git -C $repo rev-parse HEAD)
+        sourceDirty = [bool](& git -C $repo status --porcelain --untracked-files=no)
         packages = @($manifestPackages | Sort-Object { $_.id })
     } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath
     Write-Output "Verified package manifest: $manifestPath"

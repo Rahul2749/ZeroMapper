@@ -1,9 +1,13 @@
+param([string]$Version)
+
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $consumer = Join-Path $repo ('artifacts/public-consumer/' + [Guid]::NewGuid().ToString('N'))
-$release = Get-Content -LiteralPath (Join-Path $repo 'artifacts/packages/release-manifest.json') -Raw | ConvertFrom-Json
-$version = $release.version
-if ($version -notmatch '^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$') { throw 'Invalid release version.' }
+if (-not $Version) {
+    [xml]$properties = Get-Content -LiteralPath (Join-Path $repo 'Directory.Build.props') -Raw
+    $Version = [string]$properties.Project.PropertyGroup.Version
+}
+if ($Version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$') { throw 'Invalid release version.' }
 
 function Invoke-DotNet {
     & dotnet @args
@@ -41,5 +45,5 @@ foreach ($framework in 'net8.0', 'net10.0') {
     consumerFrameworks = @('net8.0', 'net10.0')
     result = 'passed'
     consumerPath = $consumer
-} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $repo 'artifacts/public-release-verification.json')
+} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $repo "artifacts/public-release-verification-$Version.json")
 Write-Output 'Published NuGet packages restored, built and ran successfully on .NET 8 and .NET 10.'

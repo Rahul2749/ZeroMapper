@@ -241,8 +241,17 @@ public sealed class MapperGenerator : IIncrementalGenerator
             return UnsafeNullability(sa.ElementType, ta.ElementType);
         if (source is INamedTypeSymbol sn && target is INamedTypeSymbol tn &&
             SymbolEqualityComparer.Default.Equals(sn.OriginalDefinition, tn.OriginalDefinition))
+        {
+            if (sn.ContainingType != null && tn.ContainingType != null &&
+                UnsafeNullability(sn.ContainingType, tn.ContainingType)) return true;
             for (int i = 0; i < sn.TypeArguments.Length; i++)
+            {
                 if (UnsafeNullability(sn.TypeArguments[i], tn.TypeArguments[i])) return true;
+                // Invariant shared references must preserve the source's writable contract too.
+                if (sn.OriginalDefinition.TypeParameters[i].Variance != VarianceKind.Out &&
+                    UnsafeNullability(tn.TypeArguments[i], sn.TypeArguments[i])) return true;
+            }
+        }
         return false;
     }
 }

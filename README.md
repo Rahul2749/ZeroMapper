@@ -1,6 +1,6 @@
 # ZeroMapper
 
-A strict, source-generated object mapper for .NET. Version `0.0.1-preview.1` is available on [NuGet](https://www.nuget.org/packages/ZeroMapper/0.0.1-preview.1). The preview API is experimental and may change.
+A strict, source-generated object mapper for .NET. The first stable release candidate is **1.0.0**; it is being verified and has not been published. The earlier [0.0.1-preview.1 package](https://www.nuget.org/packages/ZeroMapper/0.0.1-preview.1) remains available on NuGet.
 
 This first implementation generates ordinary property assignments, with no runtime reflection or third-party runtime dependencies. It includes `ZeroMapper.Abstractions`, a compiler-only `ZeroMapper.Generator`, and the `ZeroMapper` convenience package. The convenience package depends on the other two packages.
 
@@ -8,13 +8,15 @@ Read the **[complete installation and usage guide](docs/usage-guide.md)** for wo
 
 ## Quick start
 
-Install the preview in a C# 12+ project with nullable reference types enabled:
+For the prepared 1.0.0 candidate, use the verified local package directory in a C# 12+ project with nullable reference types enabled:
 
 ```powershell
-dotnet add package ZeroMapper --version 0.0.1-preview.1
+dotnet add package ZeroMapper --version 1.0.0 --source C:/Github/ZeroMapper/artifacts/packages/1.0.0
 ```
 
 The convenience package includes the abstractions and compiler generator. Alternatively reference the abstractions project and reference the generator project with `OutputItemType="Analyzer" ReferenceOutputAssembly="false"`, as in the sample.
+
+After 1.0.0 is published, omit `--source` to install from NuGet.org. See [the 1.0.0 release notes](docs/releases/1.0.0.md) for the release scope and compatibility contract.
 
 ```csharp
 using ZeroMapper;
@@ -72,6 +74,6 @@ BenchmarkDotNet compares generated code with equivalent manual assignments and r
 
 ## Contributing
 
-To prepare a prerelease candidate, run `pwsh ./eng/prepare-release.ps1`. See [the prerelease guide](docs/prerelease.md) for the package manifest, authentication and upload steps. Preparation does not publish packages.
+To prepare a release candidate, run `pwsh ./eng/prepare-release.ps1`. See [the release guide](docs/prerelease.md) for the package manifest, authentication and upload steps. Preparation does not publish packages.
 
 Use .NET 10 SDK; package assemblies target .NET Standard 2.0 and the generator uses Roslyn 4.8. Run `dotnet test ZeroMapper.sln -c Release` and `pwsh ./eng/verify-packages.ps1` before submitting changes. The package script expects dependencies restored first. SourceLink, signing, trusted publishing, and verified trimming/AOT support are release work still pending. All implementation here is original; no competitor source was copied.
