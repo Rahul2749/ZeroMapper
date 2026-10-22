@@ -1,6 +1,6 @@
 # Security
 
-Security fixes target the latest stable 1.x release once published. Older previews are not supported. The 1.0.0 candidate has not yet been published.
+Security fixes target the latest stable 1.x release. Version 1.0.0 is the first supported stable release. Older previews are not supported.
 
 Do not post exploit details or personal data in public issues. Contact the [maintainer](https://github.com/Rahul2749) privately through an established channel. A dedicated private vulnerability-reporting route has not yet been configured.
 

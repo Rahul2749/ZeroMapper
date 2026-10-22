@@ -1,6 +1,6 @@
 # ZeroMapper
 
-A strict, source-generated object mapper for .NET. The first stable release candidate is **1.0.0**; it is being verified and has not been published. The earlier [0.0.1-preview.1 package](https://www.nuget.org/packages/ZeroMapper/0.0.1-preview.1) remains available on NuGet.
+A strict, source-generated object mapper for .NET. **Version [1.0.0](https://www.nuget.org/packages/ZeroMapper/1.0.0), the first stable release, is available on NuGet.**
 
 This first implementation generates ordinary property assignments, with no runtime reflection or third-party runtime dependencies. It includes `ZeroMapper.Abstractions`, a compiler-only `ZeroMapper.Generator`, and the `ZeroMapper` convenience package. The convenience package depends on the other two packages.
 
@@ -8,15 +8,15 @@ Read the **[complete installation and usage guide](docs/usage-guide.md)** for wo
 
 ## Quick start
 
-For the prepared 1.0.0 candidate, use the verified local package directory in a C# 12+ project with nullable reference types enabled:
+Install in a C# 12+ project with nullable reference types enabled:
 
 ```powershell
-dotnet add package ZeroMapper --version 1.0.0 --source C:/Github/ZeroMapper/artifacts/packages/1.0.0
+dotnet add package ZeroMapper --version 1.0.0
 ```
 
 The convenience package includes the abstractions and compiler generator. Alternatively reference the abstractions project and reference the generator project with `OutputItemType="Analyzer" ReferenceOutputAssembly="false"`, as in the sample.
 
-After 1.0.0 is published, omit `--source` to install from NuGet.org. See [the 1.0.0 release notes](docs/releases/1.0.0.md) for the release scope and compatibility contract.
+See [the 1.0.0 release notes](docs/releases/1.0.0.md) for the release scope and compatibility contract.
 
 ```csharp
 using ZeroMapper;
