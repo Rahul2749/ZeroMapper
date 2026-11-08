@@ -1,8 +1,12 @@
 # ZeroMapper
 
+[![Build](https://github.com/Rahul2749/ZeroMapper/actions/workflows/ci.yml/badge.svg)](https://github.com/Rahul2749/ZeroMapper/actions/workflows/ci.yml)
+
 A strict, source-generated object mapper for .NET. **Version [1.0.0](https://www.nuget.org/packages/ZeroMapper/1.0.0), the first stable release, is available on NuGet.**
 
 This first implementation generates ordinary property assignments, with no runtime reflection or third-party runtime dependencies. It includes `ZeroMapper.Abstractions`, a compiler-only `ZeroMapper.Generator`, and the `ZeroMapper` convenience package. The convenience package depends on the other two packages.
+
+**Create and update have different defaults.** `Create` maps matching writable properties unless you protect or ignore them. A matching privilege flag such as `IsAdmin` will be copied if you leave it unprotected. `Update` writes only properties listed with `[MapAllow]`. Compatible reference values, including collections, are assigned shallowly.
 
 Read the **[complete installation and usage guide](docs/usage-guide.md)** for working examples, safe updates, attributes, conversion rules, diagnostics and troubleshooting. The same full guide is embedded as the NuGet README in every package, and its quick start is verified against the packaged binaries.
 
@@ -76,4 +80,4 @@ BenchmarkDotNet compares generated code with equivalent manual assignments and r
 
 To prepare a release candidate, run `pwsh ./eng/prepare-release.ps1`. See [the release guide](docs/prerelease.md) for the package manifest, authentication and upload steps. Preparation does not publish packages.
 
-Use .NET 10 SDK; package assemblies target .NET Standard 2.0 and the generator uses Roslyn 4.8. Run `dotnet test ZeroMapper.sln -c Release` and `pwsh ./eng/verify-packages.ps1` before submitting changes. The package script expects dependencies restored first. SourceLink, signing, trusted publishing, and verified trimming/AOT support are release work still pending. All implementation here is original; no competitor source was copied.
+Use .NET 10 SDK; package assemblies target .NET Standard 2.0 and the generator uses Roslyn 4.8. Run `dotnet test ZeroMapper.sln -c Release` and `pwsh ./eng/verify-packages.ps1` before submitting changes. The package script expects dependencies restored first and verifies the generator's embedded Source Link data against the build commit. Signing, trusted publishing, and verified trimming/AOT support remain future work.

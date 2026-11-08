@@ -204,6 +204,64 @@ public sealed class GeneratorTests
     }
 
     [Fact]
+    public void Emission_is_cached_for_unrelated_edits_and_refreshes_only_the_affected_mapper()
+    {
+        var options = new CSharpParseOptions(LanguageVersion.CSharp12);
+        const string models = "public class Input { public int Id { get; set; } } public class Output { public int Id { get; set; } }";
+        var types = CSharpSyntaxTree.ParseText(models, options, path: "Models.cs");
+        var mapper = CSharpSyntaxTree.ParseText("using ZeroMapper; [Mapper] public partial class Maps { public partial Output Map(Input input); }", options, path: "Maps.cs");
+        var other = CSharpSyntaxTree.ParseText("""
+            using ZeroMapper;
+            public class OtherInput { public int Count { get; set; } }
+            public class OtherOutput { public int Count { get; set; } }
+            [Mapper] public partial class OtherMaps { public partial OtherOutput Map(OtherInput input); }
+            """, options, path: "OtherMaps.cs");
+        var compilation = CSharpCompilation.Create("Incrementality", new[] { types, mapper, other }, References,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new[] { new MapperGenerator().AsSourceGenerator() },
+            parseOptions: options, driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, true));
+        driver = driver.RunGenerators(compilation);
+        Assert.Equal(2, driver.GetRunResult().Results.Single().GeneratedSources.Length);
+
+        var unrelated = compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText("public class Unrelated { }", options, path: "Unrelated.cs"));
+        driver = driver.RunGenerators(unrelated);
+        var unchanged = driver.GetRunResult().Results.Single();
+        var cached = unchanged.TrackedSteps["MapperSource"].SelectMany(step => step.Outputs).ToArray();
+        Assert.Equal(2, cached.Length);
+        Assert.All(cached, output => Assert.Equal(IncrementalStepRunReason.Cached, output.Reason));
+
+        var updatedTypes = CSharpSyntaxTree.ParseText(models.Replace("public int Id { get; set; }",
+            "public int Id { get; set; } public int Added { get; set; }"), options, path: "Models.cs");
+        driver = driver.RunGeneratorsAndUpdateCompilation(unrelated.ReplaceSyntaxTree(types, updatedTypes), out var outputCompilation, out var diagnostics);
+        var changed = driver.GetRunResult().Results.Single();
+        var outputs = changed.TrackedSteps["MapperSource"].SelectMany(step => step.Outputs).ToArray();
+        Assert.Single(outputs, output => output.Reason == IncrementalStepRunReason.Modified);
+        Assert.Single(outputs, output => output.Reason == IncrementalStepRunReason.Cached);
+        Assert.Contains(changed.GeneratedSources, source => source.SourceText.ToString().Contains("@Added = @input.@Added"));
+        Assert.Empty(diagnostics);
+        Assert.Empty(outputCompilation.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning));
+    }
+
+    [Fact]
+    public void Hint_names_are_bounded_and_distinguish_mappers_with_the_same_name()
+    {
+        var longNamespace = string.Join(".", Enumerable.Repeat(new string('N', 40), 8));
+        var longName = new string('M', 220);
+        var source = $$"""
+            public class Input { }
+            public class Output { }
+            namespace {{longNamespace}}.First { [Mapper] public partial class {{longName}} { public partial Output Map(Input input); } }
+            namespace {{longNamespace}}.Second { [Mapper] public partial class {{longName}} { public partial Output Map(Input input); } }
+            """;
+        var result = Generate(source);
+        Assert.Empty(result.Run.Diagnostics);
+        Assert.Empty(result.Output.GetDiagnostics().Where(d => d.Severity >= DiagnosticSeverity.Warning));
+        var hints = result.Run.Results.Single().GeneratedSources.Select(s => s.HintName).ToArray();
+        Assert.Equal(2, hints.Distinct().Count());
+        Assert.All(hints, hint => Assert.Matches(@"^ZeroMapper_[A-Za-z0-9_]{1,24}_[a-f0-9]{32}\.g\.cs$", hint));
+    }
+
+    [Fact]
     public void Common_path_allocates_only_the_destination_and_updates_allocate_nothing()
     {
         var assembly = Compile("""
@@ -369,6 +427,49 @@ public sealed class GeneratorTests
             public class Output { public int Id { get; init; } public int Private { get; private set; } public string ReadOnly => "server"; }
             [Mapper] public partial class Maps { public partial Output Map(Input source); }
             """);
+    }
+
+    [Theory]
+    [InlineData("public int Id { get; private set; }")]
+    [InlineData("public int Id => 1;")]
+    public void Create_warns_when_a_readable_source_match_cannot_be_written(string member)
+    {
+        var result = Generate($$"""
+            public class Input { public int Id { get; set; } }
+            public class Output { {{member}} }
+            [Mapper] public partial class Maps { public partial Output Map(Input source); }
+            """);
+        var diagnostic = Assert.Single(result.Run.Diagnostics);
+        Assert.Equal("ZM008", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("Output.Id", diagnostic.GetMessage());
+        Assert.True(diagnostic.Location.IsInSource);
+        Assert.Empty(result.Output.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void Readonly_members_can_be_ignored_or_protected_without_warnings()
+    {
+        Compile("""
+            public class Input { public int Id { get; set; } public int Admin { get; set; } }
+            public class Output { public int Id => 1; [MapProtected] public int Admin { get; private set; } }
+            [Mapper] public partial class Maps { [MapIgnore(nameof(Output.Id))] public partial Output Map(Input source); }
+            """);
+    }
+
+    [Fact]
+    public void Warning_respects_pragma_suppression()
+    {
+        var result = Generate("""
+            public class Input { public int Id { get; set; } }
+            public class Output { public int Id => 1; }
+            [Mapper] public partial class Maps {
+                #pragma warning disable ZM008
+                public partial Output Map(Input source);
+                #pragma warning restore ZM008
+            }
+            """);
+        Assert.DoesNotContain(result.Run.Diagnostics, d => !d.IsSuppressed);
     }
 
     [Fact]

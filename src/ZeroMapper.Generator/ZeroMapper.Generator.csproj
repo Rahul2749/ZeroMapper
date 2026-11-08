@@ -3,6 +3,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <IsPackable>true</IsPackable>
     <IsRoslynComponent>true</IsRoslynComponent>
+    <DebugType>embedded</DebugType>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <NoWarn>$(NoWarn);RS1036;RS2008</NoWarn>

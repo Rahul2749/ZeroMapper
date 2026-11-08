@@ -3,6 +3,8 @@ $repo = Split-Path -Parent $PSScriptRoot
 [xml]$buildProperties = Get-Content -LiteralPath (Join-Path $repo 'Directory.Build.props') -Raw
 $version = [string]$buildProperties.Project.PropertyGroup.Version
 if ($version -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$') { throw 'Invalid package release version.' }
+$sourceCommit = & git -C $repo rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch '^[a-f0-9]{40}$') { throw 'Package verification requires a Git source checkout.' }
 $packages = Join-Path $repo "artifacts/packages/$version"
 $consumer = Join-Path $repo ('artifacts/package-consumer/' + [Guid]::NewGuid().ToString('N'))
 $manifestPath = Join-Path $packages 'release-manifest.json'
@@ -14,12 +16,38 @@ function Invoke-DotNet {
     if ($LASTEXITCODE -ne 0) { throw "dotnet failed: $args" }
 }
 
+function Assert-GeneratorSourceLink($entry, [string]$commit) {
+    $assembly = [IO.MemoryStream]::new()
+    try {
+        $stream = $entry.Open()
+        try { $stream.CopyTo($assembly) } finally { $stream.Dispose() }
+        $assembly.Position = 0
+        $pe = [System.Reflection.PortableExecutable.PEReader]::new($assembly)
+        try {
+            $debugEntry = $pe.ReadDebugDirectory() | Where-Object Type -eq EmbeddedPortablePdb
+            if (-not $debugEntry) { throw 'The packed generator has no embedded PDB.' }
+            $pdb = $pe.ReadEmbeddedPortablePdbDebugDirectoryData($debugEntry)
+            try {
+                $reader = $pdb.GetMetadataReader()
+                foreach ($handle in $reader.CustomDebugInformation) {
+                    $info = $reader.GetCustomDebugInformation($handle)
+                    if ($reader.GetGuid($info.Kind) -ne [Guid]'cc110556-a091-4d38-9fec-25ab9a351a6a') { continue }
+                    $sourceLink = [Text.Encoding]::UTF8.GetString($reader.GetBlobBytes($info.Value)) | ConvertFrom-Json -AsHashtable
+                    if ($sourceLink.documents.Values -contains "https://raw.githubusercontent.com/Rahul2749/ZeroMapper/$commit/*") { return }
+                }
+                throw "The packed generator has no Source Link mapping for commit $commit."
+            } finally { $pdb.Dispose() }
+        } finally { $pe.Dispose() }
+    } finally { $assembly.Dispose() }
+}
+
 Push-Location $repo
 try {
     foreach ($project in 'ZeroMapper.Abstractions', 'ZeroMapper.Generator', 'ZeroMapper') {
         Invoke-DotNet pack "src/$project/$project.csproj" -c Release -o $packages --nologo --no-restore '-m:1'
     }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
+    Add-Type -AssemblyName System.Reflection.Metadata
     $budgets = @{ 'ZeroMapper.Abstractions' = 25KB; 'ZeroMapper.Generator' = 400KB; 'ZeroMapper' = 25KB }
     foreach ($id in $budgets.Keys) {
         $package = Get-Item (Join-Path $packages "$id.$version.nupkg")
@@ -37,6 +65,7 @@ try {
             if ($id -eq 'ZeroMapper.Generator') {
                 if ('analyzers/dotnet/cs/ZeroMapper.Generator.dll' -notin $entries) { throw 'Generator analyzer asset is missing' }
                 if ($entries | Where-Object { $_ -like 'lib/*' -or $_ -like '*Microsoft.CodeAnalysis*.dll' }) { throw 'Generator leaked runtime assets' }
+                Assert-GeneratorSourceLink $archive.GetEntry('analyzers/dotnet/cs/ZeroMapper.Generator.dll') $sourceCommit
             }
             $nuspec = $archive.Entries | Where-Object { $_.FullName -like '*.nuspec' }
             $reader = [System.IO.StreamReader]::new($nuspec.Open())
@@ -45,6 +74,7 @@ try {
             if ($packageMetadata.id -ne $id -or $packageMetadata.version -ne $version) { throw "Incorrect identity/version in $id" }
             if ($packageMetadata.license.InnerText -ne 'MIT') { throw "Incorrect license in $id" }
             if ($packageMetadata.repository.url -ne 'https://github.com/Rahul2749/ZeroMapper') { throw "Incorrect repository URL in $id" }
+            if ($packageMetadata.repository.commit -ne $sourceCommit) { throw "Incorrect repository commit in $id" }
             $dependencies = @($metadata.SelectNodes("//*[local-name()='dependency']") | ForEach-Object { $_.id })
             if ($id -eq 'ZeroMapper') {
                 if ($dependencies.Count -ne 2 -or 'ZeroMapper.Abstractions' -notin $dependencies -or 'ZeroMapper.Generator' -notin $dependencies) {
@@ -81,8 +111,9 @@ try {
         verifiedAtUtc = [DateTime]::UtcNow.ToString('o')
         consumerFrameworks = @('net8.0', 'net10.0')
         packageValidation = 'passed'
-        sourceCommit = (& git -C $repo rev-parse HEAD)
-        sourceDirty = [bool](& git -C $repo status --porcelain --untracked-files=no)
+        sourceCommit = $sourceCommit
+        sourceDirty = [bool](& git -C $repo status --porcelain --untracked-files=normal)
+        generatorSourceLink = 'passed'
         packages = @($manifestPackages | Sort-Object { $_.id })
     } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath
     Write-Output "Verified package manifest: $manifestPath"

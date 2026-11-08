@@ -1,6 +1,6 @@
 # ZeroMapper: installation and usage guide
 
-**Version: 1.0.0.** This guide documents the supported flat-mapping API and is embedded as the README in all three NuGet packages.
+This guide documents the 1.x flat-mapping API and is embedded as the README in all three NuGet packages. Public installation examples use stable `1.0.0`; changes specific to `1.0.1-preview.1` are called out below.
 
 ZeroMapper generates C# object-mapping code during compilation. You declare a partial mapping method; the compiler generates direct assignments and reports unsupported or unsafe bindings as errors. No runtime mapper registration or reflection is needed.
 
@@ -20,21 +20,21 @@ The abstractions have no third-party package dependencies. The convenience packa
 
 ### Install the convenience package
 
-After 1.0.0 is published, run this in your application project:
+Run this in your application project:
 
 ```shell
 dotnet add package ZeroMapper --version 1.0.0
 ```
 
-In Visual Studio's NuGet package manager, search for `ZeroMapper` and select version `1.0.0` after publication. Stable versions do not require **Include prerelease**.
+In Visual Studio's NuGet package manager, search for `ZeroMapper` and select version `1.0.0`. Stable versions do not require **Include prerelease**.
 
 To evaluate a locally built release bundle:
 
 ```shell
-dotnet add package ZeroMapper --version 1.0.0 --source C:/Github/ZeroMapper/artifacts/packages/1.0.0
+dotnet add package ZeroMapper --version 1.0.1-preview.1 --source "<absolute path to the local package directory>"
 ```
 
-Replace that path with the location of your verified `.nupkg` files. Keep all three packages in the same local feed directory.
+Use the version from your release manifest and the directory containing its verified `.nupkg` files. Keep all three packages in the same local feed directory.
 
 Equivalent project configuration:
 
@@ -164,9 +164,11 @@ public static partial class OrderMapper
 }
 ```
 
-`Id` maps using the implicit `int` to `long` conversion. `CreatedBy` keeps `"system"`. Ignore names must identify real destination properties writable in that mapping. Typos and duplicate declarations are errors; `nameof` is recommended. A required property cannot be ignored on a new-object map.
+`Id` maps using the implicit `int` to `long` conversion. `CreatedBy` keeps `"system"`. Ignore names must identify public destination properties. Starting in `1.0.1-preview.1`, an ignore can also explicitly skip a get-only property or one with a non-public setter. Typos and duplicate declarations are errors; `nameof` is recommended. A required property cannot be ignored on a new-object map.
 
 ## 5. Protected members and safe updates
+
+Creation is opt-out: every matching writable destination property is copied unless it is protected or ignored. If a request and entity both expose `IsAdmin`, `Create` copies it unless you explicitly exclude it. Protect sensitive destination properties or use a request model that omits them. Updates require an explicit allow-list.
 
 `[MapProtected]` belongs on a **destination property**, not on a mapper method or request property. It prevents ZeroMapper assignments in both create and update mappings, including when inherited through a property override. It does not prevent ordinary application code from assigning the property.
 
@@ -207,11 +209,13 @@ Public `init` properties and `required` properties can be initialized in new-obj
 
 Existing-object methods write ordinary public setters only. Init-only properties cannot be allow-listed. Read-only properties are not part of the writable destination contract. Ordinary fields, static properties, and indexers are not mapped.
 
+Starting in `1.0.1-preview.1`, a new-object map warns with `ZM008` when a readable source property matches a get-only destination property or one with a non-public setter. Generation continues and leaves the destination unchanged. Add `[MapIgnore(nameof(Destination.Property))]` to document an intentional omission. Projects that treat warnings as errors may need to make this choice before upgrading.
+
 Public inherited properties are considered. An override replaces its base declaration. A member hidden with `new`, including a field or inaccessible member hiding a source property, is rejected when its name would be used for binding. The generator does not silently choose among ambiguous members.
 
 ## 8. Diagnostics and troubleshooting
 
-All ZeroMapper diagnostics below are build errors. Fix the reported mapping first; C# may also report a missing partial-method implementation because no implementation is emitted for an invalid map.
+`ZM001` through `ZM007` are build errors. Fix the reported mapping first; C# may also report a missing partial-method implementation because no implementation is emitted for an invalid map. `ZM008` is a warning by default, introduced in `1.0.1-preview.1`.
 
 | Code | Cause | Typical correction |
 |---|---|---|
@@ -222,6 +226,7 @@ All ZeroMapper diagnostics below are build errors. Fix the reported mapping firs
 | ZM005 | Hidden or ambiguous member | Remove or rename the hiding member |
 | ZM006 | Invalid ignore/allow configuration | Check names, duplicates, conflicts, update-only usage, public setters and protected members |
 | ZM007 | Required destination member cannot be assigned | Make the required property publicly writable and mappable, or revise the model contract |
+| ZM008 | A create map has a readable source match but the destination is not publicly writable | Make the destination writable if it should be mapped, or explicitly exclude it with `MapIgnore` |
 
 If no method is generated, confirm that both `partial` keywords are present, `[Mapper]` is applied, the generator package is installed, and the build uses C# 12 or later. Do not suppress a missing implementation error by adding an empty method body.
 
@@ -249,6 +254,6 @@ The repository includes a BenchmarkDotNet harness against manual mapping. No spe
 
 - [Source repository](https://github.com/Rahul2749/ZeroMapper)
 - [Issue tracker](https://github.com/Rahul2749/ZeroMapper/issues) for reproducible non-sensitive bugs and feature requests
-- [Security policy](https://github.com/Rahul2749/ZeroMapper/blob/main/SECURITY.md) for the configured private reporting route; do not post exploit details publicly
+- [Security policy](https://github.com/Rahul2749/ZeroMapper/blob/main/SECURITY.md) for reporting instructions; do not post exploit details publicly
 
 ZeroMapper is MIT licensed and independent of AutoMapper. Mentioning AutoMapper as a related mapping library does not imply affiliation or compatibility with its API.

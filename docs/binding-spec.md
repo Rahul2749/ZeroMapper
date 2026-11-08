@@ -16,8 +16,8 @@ Static methods are supported. Source and destination are non-nullable classes, n
 ## Ordered binding rules
 
 1. Discover public, instance, non-indexer properties through the inheritance chain. Overrides replace their base declarations; hidden members are ambiguous. Ordinary fields, static properties, and indexers are outside the 1.0 contract. Required destination fields are rejected for new-object maps.
-2. Validate configuration by exact destination name. Unknown, duplicate, empty, conflicting, protected allow-list, and non-writable names are errors. `MapAllow` is only valid on update methods. Updates require at least one allowed member.
-3. Exclude protected properties, ignored properties, and non-allowed update properties. A protected attribute follows an override chain. New-object maps may not exclude a required member. Public setters are writable; init setters are writable only during creation. Other read-only properties are outside the writable contract.
+2. Validate configuration by exact destination name. Unknown, duplicate, empty and conflicting entries are errors. `MapAllow` is only valid on update methods, must name a writable unprotected property, and is required at least once. In `1.0.1-preview.1` and later, `MapIgnore` also accepts public non-writable properties.
+3. Exclude protected properties, ignored properties, and non-allowed update properties. A protected attribute follows an override chain. New-object maps may not exclude a required member. Public setters are writable; init setters are writable only during creation. Starting in `1.0.1-preview.1`, non-writable destination properties with an unambiguous readable source match cause warning ZM008 on creation, unless explicitly ignored or protected.
 4. For each remaining writable destination property in ordinal name order, find exactly one readable public source property of the same name. No case folding, flattening, naming convention, or best-match heuristic is applied. Missing or ambiguous bindings are errors.
 5. Reject potentially nullable or oblivious reference values flowing into non-nullable reference members, including matching generic type arguments, enclosing generic types and array elements. Invariant and contravariant generic arguments are checked in both directions to preserve shared writable contracts; covariant read-only arguments can relax nullability. Honor `MaybeNull` on source properties/getter returns and `DisallowNull` on destination properties conservatively. Nullable value conversions follow C# implicit conversion rules.
 6. Accept built-in implicit identity, numeric, reference, and nullable conversions. Reject user-defined conversions, boxing, dynamic dispatch, and non-identity reference conversions to generic types or arrays (variance and cross-shape nullable analysis are not yet supported). Distinct enum types are rejected; identical enum types are assignable. Same-type object and collection properties retain reference identity: no recursive traversal or cloning occurs.
@@ -36,8 +36,9 @@ The generated comments are the initial explain report. Each lists the source and
 | ZM005 | Hidden or ambiguous member |
 | ZM006 | Invalid ignore/allow configuration |
 | ZM007 | Required destination member cannot be assigned |
+| ZM008 | Warning: matching destination property is not writable during creation (since `1.0.1-preview.1`) |
 
-All diagnostics above are errors. A failing mapping method gets no generated implementation, so C# may also report a missing partial implementation. Member binding messages include `DestinationType.Property`. Recursive member paths are reserved for nested mapping.
+ZM001–ZM007 are errors. A failing mapping method gets no generated implementation, so C# may also report a missing partial implementation. ZM008 does not prevent generation; projects can promote it to an error through compiler settings. Member binding messages include `DestinationType.Property`. Recursive member paths are reserved for nested mapping.
 
 ## Security and behavioral limits
 

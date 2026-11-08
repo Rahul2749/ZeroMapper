@@ -12,25 +12,25 @@ From the repository root with PowerShell 7 and .NET 10 SDK:
 
 The consumer checks also require the .NET 8 runtime and targeting pack. The script restores dependencies, performs a clean Release build, runs the tests, packages all three projects, checks their metadata/assets and size budgets, and installs them into fresh .NET 8 and .NET 10 consumer projects. It never uploads anything.
 
-Outputs:
+Outputs for the version in `Directory.Build.props`:
 
-- `artifacts/packages/1.0.0/ZeroMapper.Abstractions.1.0.0.nupkg`
-- `artifacts/packages/1.0.0/ZeroMapper.Generator.1.0.0.nupkg`
-- `artifacts/packages/1.0.0/ZeroMapper.1.0.0.nupkg`
-- `artifacts/packages/1.0.0/release-manifest.json` with sizes, SHA-256 hashes, verification time and test-report hash
-- `artifacts/test-results/release-1.0.0.trx`
+- `artifacts/packages/<version>/ZeroMapper.Abstractions.<version>.nupkg`
+- `artifacts/packages/<version>/ZeroMapper.Generator.<version>.nupkg`
+- `artifacts/packages/<version>/ZeroMapper.<version>.nupkg`
+- `artifacts/packages/<version>/release-manifest.json` with sizes, SHA-256 hashes, verification time, Source Link check and test-report hash
+- `artifacts/test-results/release-<version>.trx`
 
 Only use packages whose hashes match the manifest. The final candidate must be built from a committed source snapshot with sourceDirty=false in the manifest. Rerun preparation after changing source, metadata or documentation. The manifest is deleted when a new preparation starts so a failed run cannot leave an old success marker.
 
-## Before the first upload
+## Before uploading
 
 1. Commit and push the source to the repository, and confirm its CI passes.
 2. Confirm the NuGet account that will own all three IDs and authenticate through NuGet.org. Never commit API keys to the repository.
 3. Establish and document the private reporting channel in `SECURITY.md`.
 4. Review the release notes and manifest. Confirm the package version has not already been published; published package versions cannot be overwritten.
 5. Upload the abstractions and generator packages first, followed by the convenience package. Review package ID, version, license and dependencies on the NuGet upload preview before submitting. These are separate packages, so publication is not an atomic operation.
-6. Wait for validation/indexing, then install the convenience package in a clean project using the public feed and repeat the sample. Tag the source commit `v1.0.0` and record the released package hashes.
+6. Wait for validation/indexing, then run `pwsh ./eng/verify-public-release.ps1 -Version '<version>'` to install from the public feed and run the sample. Tag the source commit `v<version>` and record the released package hashes.
 
 For this initial interactive release, use the [NuGet upload page](https://www.nuget.org/packages/manage/upload) after signing in. A future CI release can use [NuGet trusted publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing), configured for the actual account, repository, workflow and optional release environment. Authentication alone does not publish a package.
 
-Current version 1.0 limitations: no author signing, SourceLink, AOT/trim verification, runtime engine or deep mapping. NuGet account and publishing setup are external prerequisites, not local test failures.
+Starting in `1.0.1-preview.1`, package verification checks that the repository commit in each package and the generator's embedded Source Link data match the build commit. Author signing and AOT/trim verification are outside the current release process.
