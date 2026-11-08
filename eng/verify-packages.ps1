@@ -44,6 +44,9 @@ function Assert-GeneratorSourceLink($entry, [string]$commit) {
 Push-Location $repo
 try {
     foreach ($project in 'ZeroMapper.Abstractions', 'ZeroMapper.Generator', 'ZeroMapper') {
+        # Pack can reuse an existing archive when only repository metadata has changed.
+        $previousPackage = Join-Path $packages "$project.$version.nupkg"
+        if (Test-Path -LiteralPath $previousPackage -PathType Leaf) { Remove-Item -LiteralPath $previousPackage }
         Invoke-DotNet pack "src/$project/$project.csproj" -c Release -o $packages --nologo --no-restore '-m:1'
     }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
